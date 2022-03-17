@@ -4,6 +4,7 @@ import toml
 import re
 import html
 
+from dataclasses import dataclass
 from enum import Enum
 
 class Status(Enum):
@@ -13,40 +14,59 @@ class Status(Enum):
     WrongTarget = 3
     PartialSuccess = 4
     Success = 5
+    Patched = 6
 
-locals().update(toml.load('config.toml'))
-TIMEOUT = 20
+@dataclass
+class Target:
+    index: int = 0
+    ip: str = ''
+    username: str = ''
+    password: str = ''
+    title: str = ''
+    server: str = ''
+    date: str = ''
+    status: Status = Status.TryAgain
 
-with open('useragents.txt') as f:
-    useragents = f.read().split('\n')
+    def __repr__(self):
+        return f'{self.username}:{self.password}@{self.ip},{self.status}'
 
-def parse(full_string):
-    creds, ip = full_string.rsplit('@', 1)
-    username, password = creds.split(':', 1)
-    return ip, username, password
+    def to_list(self):
+        return list(map(str, self.__dict__.values())) + [repr(self)]
+
+def parse_status(status):
+    if status.startswith('Status.'):
+        return Status.__dict__[status.split('.', 1)[-1]]
+
+    if status[0] == '✅':
+        return Status.Patched
+
+    return Status.TryAgain
 
 def parse_target(target):
-    if len(target) == 0 or not '@' in target:
-        return None
+    status = Status.TryAgain
 
     try:
-        target, status = target.rsplit(',', 1)
+        if ',' in target:
+            target, status = target.rsplit(',', 1)
+            status = parse_status(status)
+
+        if '@' not in target:
+            if '.' not in target:
+                return None
+
+            return Target(ip=target, status=status)
+
         auth, ip = target.rsplit('@', 1)
         username, password = auth.split(':', 1)
 
-        return ip, username, password, status[0]
-    except:
+        return Target(ip=ip, username=username, password=password, status=status)
+
+    except Exception as e:
+        print(traceback.format_exc())
         return None
 
-def fingerprint(res):
-    if (match_title := re.search(r'<title>(.*)</title>', res.text)) is not None:
-        title = match_title.group(1)
-        title = html.unescape(title)
-    else:
-        title = ''
+TIMEOUT = 20
+locals().update(toml.load('config.toml'))
 
-    server = res.headers.get('Server', '')
-    return title + ' /// ' + server
-
-def get_pass():
-    return NEWPASS
+with open('useragents.txt') as f:
+    useragents = f.read().split('\n')

