@@ -11,12 +11,14 @@ from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 
 from zte_H118N import zte_H118N
+from zte_F670 import zte_F670
 from shared import *
 
 os.makedirs('saves', exist_ok=True)
 
 patchers = {
-    'ZXHN H118N /// Mini web server 1.0 ZTE corp 2005.': zte_H118N
+    'ZXHN H118N /// Mini web server 1.0 ZTE corp 2005.': zte_H118N,
+    'F670 /// Mini web server 1.0 ZTE corp 2005.': zte_F670
 }
 
 def lookup_target(target, just_look=True):

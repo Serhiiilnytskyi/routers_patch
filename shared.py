@@ -3,6 +3,7 @@ import string
 import toml
 import re
 import html
+import traceback
 
 from dataclasses import dataclass
 from enum import Enum
@@ -46,6 +47,9 @@ def parse_target(target):
     status = Status.TryAgain
 
     try:
+        if target[-1] == ',':
+            target = target[:-1]
+
         if ',' in target:
             target, status = target.rsplit(',', 1)
             status = parse_status(status)
@@ -65,7 +69,7 @@ def parse_target(target):
         print(traceback.format_exc())
         return None
 
-TIMEOUT = 20
+TIMEOUT = 60
 locals().update(toml.load('config.toml'))
 
 with open('useragents.txt') as f:
